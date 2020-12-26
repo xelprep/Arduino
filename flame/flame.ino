@@ -1,45 +1,33 @@
-// Basic sketch to simulate a flame from several red and green LEDs
+// Basic sketch to simulate a flame from a RGB LED
 // Ran on Arduino Nano
 
-const int green1pin = 3;
-const int red1pin = 5;
-const int red2pin = 6;
-const int green3pin = 9;
-const int green2pin = 10;
-const int red3pin = 11;
+#include "SoftPWM.h"
 
-int g1intensity;
-int r1intensity;
-int g2intensity;
-int r2intensity;
-int g3intensity;
-int r3intensity;
+const int greenpin = 3; // Due to simplicity of soldering, this is the only real PWM pin
+const int redpin = 2; // Needs SoftPWM
+const int bluepin = 4; // Needs SoftPWM
+
+int gintensity;
+int rintensity;
+int bintensity;
 int timer;
 
 void setup() {
-  pinMode(red1pin, OUTPUT);
-  pinMode(green1pin, OUTPUT);
-  pinMode(red2pin, OUTPUT);
-  pinMode(green2pin, OUTPUT);
-  pinMode(red3pin, OUTPUT);
-  pinMode(green3pin, OUTPUT);
+  SoftPWMBegin();
+  SoftPWMSet(greenpin, 0);
+  SoftPWMSet(redpin, 0);
+  SoftPWMSet(bluepin, 0);
 }
 
 void loop() {
 
   // Generate random values for red, green, and the delay
-  g1intensity = random(10, 40);
-  r1intensity = random(180, 255);
-  g2intensity = random(10, 40);
-  r2intensity = random(180, 255);
-  g3intensity = random(10, 40);
-  r3intensity = random(180, 255);
+  gintensity = random(10, 50);
+  rintensity = random(180, 255);
+  bintensity = random(0, 10);
   timer = random(5, 30);
-  analogWrite(green1pin, g1intensity);
-  analogWrite(red1pin, r1intensity);
-  analogWrite(green2pin, g2intensity);
-  analogWrite(red2pin, r2intensity);
-  analogWrite(green3pin, g3intensity);
-  analogWrite(red3pin, r3intensity);
+  SoftPWMSet(greenpin, gintensity);
+  SoftPWMSet(redpin, rintensity);
+  SoftPWMSet(bluepin, bintensity);
   delay(timer);
 }
