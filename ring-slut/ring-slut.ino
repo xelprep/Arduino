@@ -18,13 +18,24 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Rotary encoder and button settings
 RotaryEncoder encoder(2, 3); // D2 and D3 are interrupts on Arduino Nano
-byte encoderButton = 4;
+int pos = 0;
+volatile int newPos = 0;
+volatile int posDiff = 0;
+int newHue = 0;
+int newSat = 0;
+int newBrightness = 0;
+int newValue = 0;
+const byte encoderButton = 4;
 byte buttonState = 1;
 byte previousButtonState = 1;
 
-// Set up our timer and reference
-unsigned long startMillis;
-unsigned long currentMillis;
+// Set up menu vars
+byte menuState = 0;
+byte previousMenuState = 0;
+int brightness = 5;
+int hue = 255;
+int sat = 0;
+int value = 255;
 
 // Set up logo. PNG logo converted via https://javl.github.io/image2cpp/
 const unsigned char logo_bmp [] PROGMEM = {
@@ -95,34 +106,36 @@ const unsigned char logo_bmp [] PROGMEM = {
 };
 
 void setup() {
-  Serial.begin(9600);
-  Serial.print("Welcome to Ring Slut!");
-  Serial.println();
   attachInterrupt(digitalPinToInterrupt(2), updateEncoder, CHANGE);
   attachInterrupt(digitalPinToInterrupt(3), updateEncoder, CHANGE);
   initializeButton();
-  initializeRingLight();
+  FastLED.addLeds<NEOPIXEL, DATA_PIN>(ringlight, NUM_LEDS);
+  updateRingLight();
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   showLogo();
+  pos = encoder.getPosition();
 }
 
 void loop() {
-  writePosToSerialOnChange();
   buttonAction();
+  menuChanger();
+  newPos = encoder.getPosition();
+  posDiff = pos - newPos;
+  if (posDiff != 0) {
+    updateSettings();
+  }
 }
 
 void showLogo() {
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
-  display.display();
   display.drawBitmap(0, 0, logo_bmp, 128, 64, WHITE);
   display.display();
 }
 
-void initializeRingLight() {
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(ringlight, NUM_LEDS);
-  FastLED.setBrightness(255);
+void updateRingLight() {
+  FastLED.setBrightness(brightness);
   for (int i = 0; i < NUM_LEDS; i++) {
-    ringlight[i] = CRGB::White;
+    ringlight[i] = CHSV(hue, sat, value);
     FastLED.show();
   }
 }
@@ -138,25 +151,109 @@ void initializeButton() {
   previousButtonState = digitalRead(encoderButton);
 }
 
-void writePosToSerialOnChange() {
-  static int pos = 0;
-
-  int newPos = encoder.getPosition();
-  if (pos != newPos) {
-    Serial.print(newPos);
-    Serial.println();
-    pos = newPos;
+void updateSettings() {
+  switch (menuState) {
+    case 0:
+      pos = newPos;
+      return;
+    case 1:
+      newHue = hue - posDiff;
+      if (newHue >= 0 && newHue <= 255) {
+        hue = newHue;
+        displayUpdate("Hue!", hue);
+        updateRingLight();
+      }
+      pos = newPos;
+      return;
+    case 2:
+      newSat = sat - posDiff;
+      if (newSat >= 0 && newSat <= 255) {
+        sat = newSat;
+        displayUpdate("Sat!", sat);
+        updateRingLight();
+      }
+      pos = newPos;
+      return;
+    case 3:
+      newValue = value - posDiff;
+      if (newValue >= 0 && newValue <= 255) {
+        value = newValue;
+        displayUpdate("Value!", value);
+        updateRingLight();
+      }
+      pos = newPos;
+      return;
+    case 4:
+      newBrightness = brightness - posDiff;
+      if (newBrightness >= 0 && newBrightness <= 255) {
+        brightness = newBrightness;
+        displayUpdate("Bright!", brightness);
+        updateRingLight();
+      }
+      pos = newPos;
+      break;
+    default:
+      return;
   }
 }
 
 void buttonAction() {
-	buttonState = digitalRead(encoderButton);
-	if (buttonState != previousButtonState) {
-		if (buttonState == 0) {
-			Serial.print("Button was pressed.");
-			Serial.println();
-		}
-		previousButtonState = buttonState;
-		delay(10);
-	}
+  // encoder.setPosition(0);
+  // pos = 0;
+  // newPos = 0;
+  buttonState = digitalRead(encoderButton);
+  if (buttonState != previousButtonState) {
+    if (buttonState == 0) {
+      switch (menuState) {
+        case 4:
+          menuState = 0;
+          break;
+        default:
+          menuState++;
+          break;
+      }
+    }
+    previousButtonState = buttonState;
+    delay(10);
+  }
+}
+
+void menuChanger() {
+  if (menuState == previousMenuState) {
+    return;
+  }
+  switch (menuState) {
+    case 0:
+      showLogo();
+      previousMenuState = menuState;
+      break;
+    case 1:
+      displayUpdate("Hue!", hue);
+      previousMenuState = menuState;
+      break;
+    case 2:
+      displayUpdate("Sat!", sat);
+      previousMenuState = menuState;
+      break;
+    case 3:
+      displayUpdate("Value!", value);
+      previousMenuState = menuState;
+      break;
+    case 4:
+      displayUpdate("Bright!", brightness);
+      previousMenuState = menuState;
+      break;
+  }
+}
+
+void displayUpdate(const char* headtext, byte bodytext) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(1, 0);
+  display.println(headtext);
+  display.setTextSize(4);
+  display.setCursor(50, 18);
+  display.println(bodytext);
+  display.display();
 }
