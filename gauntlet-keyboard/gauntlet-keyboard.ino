@@ -18,7 +18,7 @@ BleKeyboard bleKeyboard("Hell Gauntlet", "Linguanal Sense", 100);
 #define BUZZER_CHANNEL 0
 
 uint32_t batteryReportCounter = 0;
-bool jinglePlayed = false;
+bool jinglePlayed = 0;
 
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
@@ -39,7 +39,7 @@ void helldive() {
   buzzer.tone(NOTE_C5, 800);
   delay(20);
   buzzer.tone(NOTE_D5, 1500);
-  buzzer.noTone();
+  jinglePlayed = 1;
 }
 
 void setup() {
@@ -47,7 +47,7 @@ void setup() {
   // Serial.begin(115200);
   pinMode(BATTERY_PIN, INPUT_PULLDOWN);  // ADC
   pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged
+  digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged. Not sure why it's off when low
 
   for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
     pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
@@ -59,19 +59,25 @@ void setup() {
 }
 
 void loop() {
+  if (!bleKeyboard.isConnected()) {
+    jinglePlayed = 0;
+  }
+
   if (bleKeyboard.isConnected()) {
     float Vbattnormalized = 0;
     float Vbattpercent = 0;
     uint32_t Vbatt = 0;
 
-    if (jinglePlayed != true) {
+    if (!jinglePlayed) {
+      delay(2000);
       helldive();
-      jinglePlayed = true;
     }
 
-    if (batteryReportCounter == 500) {  // Limit the number of battery reports to 1 per 10 seconds 500*20 = 10000
-      for (int i = 0; i < 50; i++) {
+    if (batteryReportCounter == 500) {  // Limit the number of battery reports to 1 per 10 seconds 500 counts * 20 millis = 10000 millis
+      for (int i = 0; i < 51; i++) {
+        if (i != 0) { // Internet says discard first reading since ESP ADC sucks
         Vbatt = Vbatt + analogReadMilliVolts(BATTERY_PIN);  // ADC with correction
+        }
       }
       float Vbattf = 2 * Vbatt / 50 / 1000.0;  // attenuation ratio 1/2, mV --> V
 
@@ -95,13 +101,11 @@ void loop() {
       // Serial.print(Vbattpercent, 3);
       // Serial.println("%");
 
-      bleKeyboard.setBatteryLevel(round(Vbattpercent));
+      bleKeyboard.setBatteryLevel(Vbattpercent);
       batteryReportCounter = 0;
     } else {
       batteryReportCounter = batteryReportCounter + 1;
     }
-
-    // Serial.println(batteryReportCounter, 3);
 
     for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
       currentButtonStates[currentIndex] = digitalRead(buttonPins[currentIndex]);
@@ -122,7 +126,5 @@ void loop() {
     }
 
     delay(20);
-  } else {
-    jinglePlayed = false;
   }
 }
