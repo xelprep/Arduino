@@ -45,7 +45,7 @@ int intbrightness;
 const char *HOSTSSID = SECRET_HOSTSSID;
 const char *HOSTPASS = SECRET_HOSTPASS;
 
-// Create or web form - There's got to be a better way
+// Create our web form - There's got to be a better way
 const char *formHtml = "<h1>Plumage</h1><h3>support@fake.email</h3><form action=\"/effectArgs\">\
 <label for=\"effect\">Effect:</label><br><select id=\"effect\" name=\"effect\">\
 <option value=\"Chase\">Chase</option><option value=\"Random Chase\">Random Chase</option>\
