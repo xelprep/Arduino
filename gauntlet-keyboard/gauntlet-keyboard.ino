@@ -22,7 +22,7 @@ bool jinglePlayed = false;
 
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
-byte buttonPins[numOfButtons] = { 3, 16, 17, 18, 19 };
+byte buttonPins[numOfButtons] = { 13, 16, 17, 18, 19 };
 byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'w', 'a', 's', 'd' };
 
 ToneESP32 buzzer(BUZZER_PIN, BUZZER_CHANNEL);
