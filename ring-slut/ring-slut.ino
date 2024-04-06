@@ -5,12 +5,18 @@
 #include <RotaryEncoder.h>
 #include <FastLED.h>
 
+// This project is a manually adjustable (HSV+Brightness) ring light controller
+// It isn't smart or connected and it runs on an Arduino Nano Aliexpress clone
+//
+// Each press of the encoder button switches modes and turning the knob adjusts
+// the associated setting, represented immediately on the ring light.
+
 // Ring light settings (tested with WS2812b from Aliexpress)
 #define NUM_LEDS 45
 #define DATA_PIN 10
 CRGB ringlight[NUM_LEDS];
 
-// SSD1306 Settings
+// SSD1306 Settings (i2c to save pins)
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
