@@ -1,25 +1,27 @@
-// Hell Gauntlet
-// -------------
-// Authored by xelprep cobbled together from various example code in the used libraries
+/*
+Hell Gauntlet
+-------------
+Authored by xelprep cobbled together from various example code in the used libraries
 
-// Tested with the following libraries:
-// ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled (see docs for library)
-// NimBLE-Arduino@1.4.1
-// ToneESP32@1.0.0
-// FastLED@3.6.0
+Tested with the following libraries:
+ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled (see docs for library)
+NimBLE-Arduino@1.4.1
+ToneESP32@1.0.0
+FastLED@3.6.0
 
-// Tested with version 2.0.14 ESP32 Arduino Core
+Tested with version 2.0.14 ESP32 Arduino Core
 
-// Should only compile for a WEMOS LOLIN32, Adafruit ESP32 Feather V2, or compatible clones.
-// Should fail to compile for other boards
+Should only compile for a WEMOS LOLIN32, Adafruit ESP32 Feather V2, or compatible clones.
+Should fail to compile for other boards
 
-// TODO:
-// Test higher brightness on LEDs to get an actual color gradient as state of charge changes
-// Add fast blink when battery is critically low
-// Implement deep sleep when battery is too low
-// Test on a ps5
-// Test if HD respects inputs from multiple keyboards
-// Maybe move jingle back to high-priority loop to prevent stuttering
+TODO:
+Test higher brightness on LEDs to get an actual color gradient as state of charge changes
+Add fast blink when battery is critically low
+Implement deep sleep when battery is too low
+Test on a ps5
+Test if HD respects inputs from multiple keyboards
+Maybe move jingle back to high-priority loop to prevent stuttering
+*/
 
 #include <BleKeyboard.h>
 #include <ToneESP32.h>
