@@ -1,8 +1,19 @@
+// Hell Gauntlet
+// -------------
+// Authored by xelprep
+
+// Tested with the following libraries:
+// ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled (see docs for library)
+// NimBLE-Arduino@1.4.1
+// ToneESP32@1.0.0
+// FastLED@3.6.0
+
+// Should only compile for a WEMOS LOLIN32, Adafruit ESP32 Feather V2, or compatible clones.
+// Should fail to compile for other boards
+
 // TODO:
 // Implement dual core for ensuring priority of keyboard responsiveness
 // Implement the feature where a pin is low and the chip is turned off but power stuff keeps going
-// Disable Serial output for performance reasons maybe?
-// Change defines to consts
 // Add LEDs and effects based on connection and power statuses
 // Test on a ps5
 // Test if HD respects inputs from multiple keyboards
@@ -11,75 +22,64 @@
 #include <ToneESP32.h>
 #include <FastLED.h>
 
-BleKeyboard bleKeyboard("Hell Gauntlet", "Linguanal Sense", 100);
-
-#define numOfButtons 5
+#ifdef ARDUINO_LOLIN32
 #define BATTERY_PIN 4
 #define BUZZER_PIN 22
-#define BUZZER_CHANNEL 0
-#define NUM_LEDS 2
 #define LED_PIN 13
+#define BUTTON1 12
+#define BUTTON2 16
+#define BUTTON3 17
+#define BUTTON4 18
+#define BUTTON5 19
+#define BOARD "LOLIN32"
+#endif
 
-CRGB leds[NUM_LEDS];
+#ifdef ARDUINO_ADAFRUIT_FEATHER_ESP32_V2
+#define BATTERY_PIN 4
+#define BUZZER_PIN 22
+#define LED_PIN 13
+#define BUTTON1 12
+#define BUTTON2 16
+#define BUTTON3 17
+#define BUTTON4 18
+#define BUTTON5 19
+#define BOARD "FEATHERV2"
+#endif
 
-uint32_t batteryReportCounter = 0;
-bool jinglePlayed = 0;
+#ifndef BOARD
+#error "No compatible board defined"
+#endif
 
+const int numOfButtons = 5;
+const int BUZZER_CHANNEL = 0;
+const int NUM_LEDS = 1;
+
+bool jinglePlayed = false;
+int batteryReportCounter = 0;
+int Vbatt = 0;
+float Vbattnormalized = 0;
+float Vbattpercent = 0;
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
-byte buttonPins[numOfButtons] = { 13, 16, 17, 18, 19 };
+byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
 byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'w', 'a', 's', 'd' };
 
+CRGB leds[NUM_LEDS];
+BleKeyboard bleKeyboard("Hell Gauntlet", "S.E.A.F Armory", 100);
 ToneESP32 buzzer(BUZZER_PIN, BUZZER_CHANNEL);
 
-void helldive() {
-  buzzer.tone(NOTE_F5, 200);
-  delay(20);
-  buzzer.tone(NOTE_E5, 200);
-  delay(20);
-  buzzer.tone(NOTE_D5, 200);
-  delay(20);
-  buzzer.tone(NOTE_A4, 1500);
-  delay(20);
-  buzzer.tone(NOTE_C5, 800);
-  delay(20);
-  buzzer.tone(NOTE_D5, 1500);
-  jinglePlayed = 1;
-}
-
 void setup() {
-  FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(50);
-  delay(1000);
-
-  leds[0] = CRGB::Red;
-  leds[1] = CRGB::Green;
-  FastLED.show();
-  
-  // Serial.begin(115200);
-  pinMode(BATTERY_PIN, INPUT_PULLDOWN);  // ADC
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged. Not sure why it's off when low
-
-  for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
-    pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
-    previousButtonStates[currentPinIndex] = HIGH;
-    currentButtonStates[currentPinIndex] = HIGH;
-  }
-
+  initLED();
+  initPins();
   bleKeyboard.begin();
 }
 
 void loop() {
   if (!bleKeyboard.isConnected()) {
-    jinglePlayed = 0;
+    jinglePlayed = false;
   }
 
   if (bleKeyboard.isConnected()) {
-    float Vbattnormalized = 0;
-    float Vbattpercent = 0;
-    uint32_t Vbatt = 0;
-
     if (!jinglePlayed) {
       delay(2000);
       helldive();
@@ -107,12 +107,6 @@ void loop() {
 
       Vbattpercent = round(Vbattpercent);
 
-      // Serial.print(F("Battery voltage is approximately "));
-      // Serial.println(Vbattf, 3);
-      // Serial.print(F("Battery percentage is "));
-      // Serial.print(Vbattpercent, 3);
-      // Serial.println("%");
-
       bleKeyboard.setBatteryLevel(Vbattpercent);
       batteryReportCounter = 0;
     } else {
@@ -138,5 +132,52 @@ void loop() {
     }
 
     delay(20);
+  }
+}
+
+void helldive() {
+  leds[0] = CRGB::Red;
+  FastLED.show();
+  buzzer.tone(NOTE_F5, 200);
+  delay(20);
+  leds[0] = CRGB::White;
+  FastLED.show();
+  buzzer.tone(NOTE_E5, 200);
+  delay(20);
+  leds[0] = CRGB::Blue;
+  FastLED.show();
+  buzzer.tone(NOTE_D5, 200);
+  delay(20);
+  leds[0] = CRGB::OrangeRed;
+  FastLED.show();
+  buzzer.tone(NOTE_A4, 1500);
+  delay(20);
+  leds[0] = CRGB::Green;
+  FastLED.show();
+  buzzer.tone(NOTE_C5, 800);
+  delay(20);
+  leds[0] = CRGB::Yellow;
+  FastLED.show();
+  buzzer.tone(NOTE_D5, 1500);
+  jinglePlayed = true;
+}
+
+void initLED() {
+  FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(10);
+  delay(1000);
+  leds[0] = CRGB::Green;
+  FastLED.show();
+}
+
+void initPins() {
+  pinMode(BATTERY_PIN, INPUT_PULLDOWN);  // ADC
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged
+
+  for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
+    pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
+    previousButtonStates[currentPinIndex] = HIGH;
+    currentButtonStates[currentPinIndex] = HIGH;
   }
 }
