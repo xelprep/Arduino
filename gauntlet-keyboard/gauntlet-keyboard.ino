@@ -21,6 +21,7 @@ Implement deep sleep when battery is too low
 Test on a ps5
 Test if HD respects inputs from multiple keyboards
 Maybe move jingle back to high-priority loop to prevent stuttering
+Change jingle colors to match Super Earth flag colors
 */
 
 #include <BleKeyboard.h>
