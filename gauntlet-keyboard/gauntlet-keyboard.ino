@@ -1,6 +1,6 @@
 // Hell Gauntlet
 // -------------
-// Authored by xelprep
+// Authored by xelprep cobbled together from various example code in the used libraries
 
 // Tested with the following libraries:
 // ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled (see docs for library)
