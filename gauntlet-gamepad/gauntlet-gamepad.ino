@@ -8,7 +8,7 @@
  */
 
 #include <Arduino.h>
-#include <BleGamepad.h> // https://github.com/lemmingDev/ESP32-BLE-Gamepad
+#include <BleGamepad.h>  // https://github.com/lemmingDev/ESP32-BLE-Gamepad
 
 BleGamepad bleGamepad;
 
@@ -16,57 +16,46 @@ BleGamepad bleGamepad;
 
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
-byte buttonPins[numOfButtons] = {3, 16, 17, 18, 19};
-byte physicalButtons[numOfButtons] = {1, 2, 3, 4, 5};
+byte buttonPins[numOfButtons] = { 3, 16, 17, 18, 19 };
+byte physicalButtons[numOfButtons] = { 1, 2, 3, 4, 5 };
 
-void setup()
-{
-    for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++)
-    {
-        pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
-        previousButtonStates[currentPinIndex] = HIGH;
-        currentButtonStates[currentPinIndex] = HIGH;
-    }
+void setup() {
+  for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
+    pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
+    previousButtonStates[currentPinIndex] = HIGH;
+    currentButtonStates[currentPinIndex] = HIGH;
+  }
 
-    BleGamepadConfiguration bleGamepadConfig;
-    bleGamepadConfig.setAutoReport(false);
-    bleGamepadConfig.setButtonCount(numOfButtons);
-    bleGamepad.begin(&bleGamepadConfig);
+  BleGamepadConfiguration bleGamepadConfig;
+  bleGamepadConfig.setAutoReport(false);
+  bleGamepadConfig.setButtonCount(numOfButtons);
+  bleGamepad.begin(&bleGamepadConfig);
 
-    // changing bleGamepadConfig after the begin function has no effect, unless you call the begin function again
+  // changing bleGamepadConfig after the begin function has no effect, unless you call the begin function again
 }
 
-void loop()
-{
-    if (bleGamepad.isConnected())
-    {
-        for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++)
-        {
-            currentButtonStates[currentIndex] = digitalRead(buttonPins[currentIndex]);
+void loop() {
+  if (bleGamepad.isConnected()) {
+    for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
+      currentButtonStates[currentIndex] = digitalRead(buttonPins[currentIndex]);
 
-            if (currentButtonStates[currentIndex] != previousButtonStates[currentIndex])
-            {
-                if (currentButtonStates[currentIndex] == LOW)
-                {
-                    bleGamepad.press(physicalButtons[currentIndex]);
-                }
-                else
-                {
-                    bleGamepad.release(physicalButtons[currentIndex]);
-                }
-            }
+      if (currentButtonStates[currentIndex] != previousButtonStates[currentIndex]) {
+        if (currentButtonStates[currentIndex] == LOW) {
+          bleGamepad.press(physicalButtons[currentIndex]);
+        } else {
+          bleGamepad.release(physicalButtons[currentIndex]);
         }
-
-        if (currentButtonStates != previousButtonStates)
-        {
-            for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++)
-            {
-                previousButtonStates[currentIndex] = currentButtonStates[currentIndex];
-            }
-
-            bleGamepad.sendReport();
-        }
-
-        delay(20);
+      }
     }
+
+    if (currentButtonStates != previousButtonStates) {
+      for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
+        previousButtonStates[currentIndex] = currentButtonStates[currentIndex];
+      }
+
+      bleGamepad.sendReport();
+    }
+
+    delay(20);
+  }
 }

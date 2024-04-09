@@ -9,6 +9,7 @@
 
 #include <BleKeyboard.h>
 #include <ToneESP32.h>
+#include <FastLED.h>
 
 BleKeyboard bleKeyboard("Hell Gauntlet", "Linguanal Sense", 100);
 
@@ -16,6 +17,10 @@ BleKeyboard bleKeyboard("Hell Gauntlet", "Linguanal Sense", 100);
 #define BATTERY_PIN 4
 #define BUZZER_PIN 22
 #define BUZZER_CHANNEL 0
+#define NUM_LEDS 2
+#define LED_PIN 13
+
+CRGB leds[NUM_LEDS];
 
 uint32_t batteryReportCounter = 0;
 bool jinglePlayed = 0;
@@ -43,7 +48,14 @@ void helldive() {
 }
 
 void setup() {
+  FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(50);
+  delay(1000);
 
+  leds[0] = CRGB::Red;
+  leds[1] = CRGB::Green;
+  FastLED.show();
+  
   // Serial.begin(115200);
   pinMode(BATTERY_PIN, INPUT_PULLDOWN);  // ADC
   pinMode(LED_BUILTIN, OUTPUT);
@@ -75,8 +87,8 @@ void loop() {
 
     if (batteryReportCounter == 500) {  // Limit the number of battery reports to 1 per 10 seconds 500 counts * 20 millis = 10000 millis
       for (int i = 0; i < 51; i++) {
-        if (i != 0) { // Internet says discard first reading since ESP ADC sucks
-        Vbatt = Vbatt + analogReadMilliVolts(BATTERY_PIN);  // ADC with correction
+        if (i != 0) {                                         // Internet says discard first reading since ESP ADC sucks
+          Vbatt = Vbatt + analogReadMilliVolts(BATTERY_PIN);  // ADC with correction
         }
       }
       float Vbattf = 2 * Vbatt / 50 / 1000.0;  // attenuation ratio 1/2, mV --> V
