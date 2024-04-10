@@ -59,7 +59,8 @@ Change jingle colors to match Super Earth flag colors
 const int numOfButtons = 5;
 const int BUZZER_CHANNEL = 0;
 const int NUM_LEDS = 1;
-const long interval = 500;
+const long interval = 500; // LED blink interval when BT is not connected
+const long btinterval = 20; // Using millis to unblock core0 instead of 20ms delay()
 
 bool jinglePlayed = false;
 bool ledState = true;
@@ -68,6 +69,8 @@ int Vbatt = 0;
 int fakeBatt = 0;
 unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
+unsigned long btpreviousMillis = 0;
+unsigned long btcurrentMillis = 0;
 float Vbattnormalized = 0;
 float Vbattpercent = 0;
 byte previousButtonStates[numOfButtons];
@@ -75,7 +78,7 @@ byte currentButtonStates[numOfButtons];
 byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
 byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'w', 'a', 's', 'd' };
 
-TaskHandle_t loopLowPri;  // Instantiate another task to run on low-priority core 0
+TaskHandle_t loopCore0task;  // Instantiate another task to run on low-priority core 0
 
 CRGB leds[NUM_LEDS];
 BleKeyboard bleKeyboard("Hell Gauntlet", "S.E.A.F Armory", 100);
@@ -86,72 +89,77 @@ void setup() {
   initPins();
   bleKeyboard.begin();
 
-  batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on yellow
+  batteryReportCounter = 1500;  // Ensure battery status is updated asap after boot
 
   delay(500);
 
   xTaskCreatePinnedToCore(  // This is where we define the function to run as the low priotity task
-    loopLowPriCode,         /* Function to implement the task */
-    "loopLowPri",           /* Name of the task */
+    loopCore0,              /* Function to implement the task */
+    "loopCore0",            /* Name of the task */
     10000,                  /* Stack size in words */
     NULL,                   /* Task input parameter */
     0,                      /* Priority of the task */
-    &loopLowPri,            /* Task handle. */
+    &loopCore0task,         /* Task handle. */
     0);                     /* Core where the task should run */
 }
 
-void loop() {
+void loop() {  // Runs on core1
+  //fakeBattery();
+  batteryStatus();
+  if (!bleKeyboard.isConnected()) {
+    currentMillis = millis();
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      if (ledState) {
+        ledState = false;
+        leds[0] = CHSV(int(Vbattpercent), 255, 0);
+      } else {
+        ledState = true;
+        leds[0] = CHSV(int(Vbattpercent), 255, 10);
+      }
+      FastLED.show();  // Update LED to represent current state of charge
+    }
+    jinglePlayed = false;
+  }
+
   if (bleKeyboard.isConnected()) {
-    for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
-      currentButtonStates[currentIndex] = digitalRead(buttonPins[currentIndex]);
-
-      if (currentButtonStates[currentIndex] != previousButtonStates[currentIndex]) {
-        if (currentButtonStates[currentIndex] == LOW) {
-          bleKeyboard.press(physicalButtons[currentIndex]);
-        } else {
-          bleKeyboard.release(physicalButtons[currentIndex]);
-        }
-      }
+    if (!jinglePlayed) {
+      delay(1000);
+      helldive();
+      batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on yellow
     }
-
-    if (currentButtonStates != previousButtonStates) {
-      for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
-        previousButtonStates[currentIndex] = currentButtonStates[currentIndex];
-      }
-    }
-
-    delay(20);
+    leds[0] = CHSV(int(Vbattpercent), 255, 10);
+    FastLED.show();  // Update LED to represent current state of charge
   }
 }
 
-void loopLowPriCode(void* parameter) {
+void loopCore0(void* parameter) {
   for (;;) {
-    //fakeBattery();
-    batteryStatus();
-    if (!bleKeyboard.isConnected()) {
-      currentMillis = millis();
-      if (currentMillis - previousMillis >= interval) {
-        previousMillis = currentMillis;
-        if (ledState) {
-          ledState = false;
-          leds[0] = CHSV(int(Vbattpercent), 255, 0);
-        } else {
-          ledState = true;
-          leds[0] = CHSV(int(Vbattpercent), 255, 10);
-        }
-        FastLED.show();  // Update LED to represent current state of charge
-      }
-      jinglePlayed = false;
-    }
-
     if (bleKeyboard.isConnected()) {
-      if (!jinglePlayed) {
-        delay(1000);
-        helldive();
-        batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on yellow
+      btcurrentMillis = millis();
+
+      if (btcurrentMillis - btpreviousMillis >= btinterval) {
+        btpreviousMillis = btcurrentMillis;
+
+        for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
+          currentButtonStates[currentIndex] = digitalRead(buttonPins[currentIndex]);
+
+          if (currentButtonStates[currentIndex] != previousButtonStates[currentIndex]) {
+
+            if (currentButtonStates[currentIndex] == LOW) {
+              bleKeyboard.press(physicalButtons[currentIndex]);
+            } else {
+              bleKeyboard.release(physicalButtons[currentIndex]);
+            }
+          }
+        }
       }
-      leds[0] = CHSV(int(Vbattpercent), 255, 10);
-      FastLED.show();  // Update LED to represent current state of charge
+
+      if (currentButtonStates != previousButtonStates) {
+        for (byte currentIndex = 0; currentIndex < numOfButtons; currentIndex++) {
+          previousButtonStates[currentIndex] = currentButtonStates[currentIndex];
+        }
+      }
     }
   }
 }
@@ -203,25 +211,6 @@ void initPins() {
   }
 }
 
-void fakeBattery() {  // Needed a way to test LED conditions
-  if (batteryReportCounter == 1500) {
-    batteryReportCounter = 0;
-  }
-  if (batteryReportCounter == 50) {
-    Vbattpercent = fakeBatt;
-    bleKeyboard.setBatteryLevel(int(Vbattpercent));
-    if (fakeBatt == 100) {
-      fakeBatt = 0;
-    } else {
-      fakeBatt = fakeBatt + 1;
-    }
-    batteryReportCounter = 0;
-  } else {
-    batteryReportCounter = batteryReportCounter + 1;
-  }
-  delay(20);
-}
-
 void batteryStatus() {
   if (batteryReportCounter == 1500) {  // Limit the number of battery reports to ~1 per 30 seconds 1500 counts * 20 millis = 30000 millis
     for (int i = 0; i < 10001; i++) {
@@ -252,3 +241,22 @@ void batteryStatus() {
   }
   delay(20);
 }
+
+// void fakeBattery() {  // Needed a way to test LED conditions
+//   if (batteryReportCounter == 1500) {
+//     batteryReportCounter = 0;
+//   }
+//   if (batteryReportCounter == 50) {
+//     Vbattpercent = fakeBatt;
+//     bleKeyboard.setBatteryLevel(int(Vbattpercent));
+//     if (fakeBatt == 100) {
+//       fakeBatt = 0;
+//     } else {
+//       fakeBatt = fakeBatt + 1;
+//     }
+//     batteryReportCounter = 0;
+//   } else {
+//     batteryReportCounter = batteryReportCounter + 1;
+//   }
+//   delay(20);
+// }
