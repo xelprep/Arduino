@@ -119,36 +119,6 @@ void loop() {  // Runs on core1
     batteryStatus();
   }
 
-  switch (int(Vbattpercent)) {
-    case 0:  // Battery is dead - make sure first and then kill the lights and sleep
-      zeroBattTimes = zeroBattTimes + 1;
-      if (zeroBattTimes == 3) {
-        zeroBattTimes = 0;  // Not sure if required because this will likely be 0 when it powers back up
-        leds[0] = CHSV(0, 255, 0);
-        FastLED.show();
-        esp_deep_sleep_start();
-      } else {
-        batteryHue = 0;
-      }
-      break;
-    case 1 ... 20:  // Battery is low so red
-      batteryHue = 0;
-      zeroBattTimes = 0;
-      break;
-    case 21 ... 70:  // Battery is mid so yellow
-      batteryHue = 64;
-      zeroBattTimes = 0;
-      break;
-    case 71 ... 100:  // Battery is decently charged so green
-      batteryHue = 96;
-      zeroBattTimes = 0;
-      break;
-    default:  //Some kind of error maybe so let's just say red
-      batteryHue = 0;
-      zeroBattTimes = 0;
-      break;
-  }
-
   if (!bleKeyboard.isConnected()) {
     if (int(Vbattpercent) <= 5) {  // Blink rapidly while connected to indicate low battery
       lobatcurrentMillis = millis();
@@ -315,6 +285,36 @@ void batteryStatus() {
     batteryReportCounter = batteryReportCounter + 1;
   }
   delay(20);
+
+  switch (int(Vbattpercent)) {
+    case 0:  // Battery is dead - make sure first and then kill the lights and sleep
+      zeroBattTimes = zeroBattTimes + 1;
+      if (zeroBattTimes == 3) {
+        zeroBattTimes = 0;  // Not sure if required because this will likely be 0 when it powers back up
+        leds[0] = CHSV(0, 255, 0);
+        FastLED.show();
+        esp_deep_sleep_start();
+      } else {
+        batteryHue = 0;
+      }
+      break;
+    case 1 ... 20:  // Battery is low so red
+      batteryHue = 0;
+      zeroBattTimes = 0;
+      break;
+    case 21 ... 70:  // Battery is mid so yellow
+      batteryHue = 64;
+      zeroBattTimes = 0;
+      break;
+    case 71 ... 100:  // Battery is decently charged so green
+      batteryHue = 96;
+      zeroBattTimes = 0;
+      break;
+    default:  //Some kind of error maybe so let's just say red
+      batteryHue = 0;
+      zeroBattTimes = 0;
+      break;
+  }
 }
 
 void fakeBattery() {  // Needed a way to test LED conditions
@@ -334,4 +334,24 @@ void fakeBattery() {  // Needed a way to test LED conditions
     batteryReportCounter = batteryReportCounter + 1;
   }
   delay(20);
+
+  switch (int(Vbattpercent)) {
+    case 0:               // Battery is dead - make sure first and then kill the lights and sleep
+      leds[0] = CHSV(0, 255, 0);
+      FastLED.show();
+      esp_deep_sleep_start();
+      break;
+    case 1 ... 20:  // Battery is low so red
+      batteryHue = 0;
+      break;
+    case 21 ... 70:  // Battery is mid so yellow
+      batteryHue = 64;
+      break;
+    case 71 ... 100:  // Battery is decently charged so green
+      batteryHue = 96;
+      break;
+    default:  //Some kind of error maybe so let's just say red
+      batteryHue = 0;
+      break;
+  }
 }
