@@ -66,13 +66,14 @@ const long dcinterval = 500;     // LED blink interval when BT is not connected 
 const long btinterval = 20;      // Using millis to unblock core0 instead of 20ms delay()
 const long lobatinterval = 125;  // LED blink interval when battery is low - 125ms
 
-bool batteryTestMode = true;
+bool batteryTestMode = false;
 bool jinglePlayed = false;
 bool ledState = true;
 int batteryReportCounter = 0;
 int Vbatt = 0;
 int fakeBatt = 100;
 int batteryHue = 96;
+int zeroBattTimes = 0;
 unsigned long dcpreviousMillis = 0;
 unsigned long dccurrentMillis = 0;
 unsigned long btpreviousMillis = 0;
@@ -119,22 +120,32 @@ void loop() {  // Runs on core1
   }
 
   switch (int(Vbattpercent)) {
-    case 0:  // Battery is dead - kill the lights and sleep
-      leds[0] = CHSV(0, 255, 0);
-      FastLED.show();
-      esp_deep_sleep_start();
+    case 0:  // Battery is dead - make sure first and then kill the lights and sleep
+      zeroBattTimes = zeroBattTimes + 1;
+      if (zeroBattTimes == 3) {
+        zeroBattTimes = 0;  // Not sure if required because this will likely be 0 when it powers back up
+        leds[0] = CHSV(0, 255, 0);
+        FastLED.show();
+        esp_deep_sleep_start();
+      } else {
+        batteryHue = 0;
+      }
       break;
     case 1 ... 20:  // Battery is low so red
       batteryHue = 0;
+      zeroBattTimes = 0;
       break;
     case 21 ... 70:  // Battery is mid so yellow
       batteryHue = 64;
+      zeroBattTimes = 0;
       break;
     case 71 ... 100:  // Battery is decently charged so green
       batteryHue = 96;
+      zeroBattTimes = 0;
       break;
     default:  //Some kind of error maybe so let's just say red
       batteryHue = 0;
+      zeroBattTimes = 0;
       break;
   }
 
