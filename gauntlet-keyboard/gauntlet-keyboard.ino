@@ -15,13 +15,16 @@ Should only compile for a WEMOS LOLIN32, Adafruit ESP32 Feather V2, or compatibl
 Should fail to compile for other boards
 
 TODO:
-Test higher brightness on LEDs to get an actual color gradient as state of charge changes
-Add fast blink when battery is critically low
-Implement deep sleep when battery is too low
 Test on a ps5
 Test if HD respects inputs from multiple keyboards
-Maybe move jingle back to high-priority loop to prevent stuttering
-Change jingle colors to match Super Earth flag colors
+*/
+
+/*
+Set batteryTestMode to true if you want to run battery test with fake battery status.
+Starts at 100 and decreases 1% every ~1 second.
+
+Setting to false reads actual connected battery. If no battery is inserted, at least on the LOLIN32 close, 
+ADC reads full battery due to being connected to charging module. Unsure how to fix or if it's even possible.
 */
 
 #include <BleKeyboard.h>
@@ -59,20 +62,25 @@ Change jingle colors to match Super Earth flag colors
 const int numOfButtons = 5;
 const int BUZZER_CHANNEL = 0;
 const int NUM_LEDS = 1;
-const long interval = 500; // LED blink interval when BT is not connected
-const long btinterval = 20; // Using millis to unblock core0 instead of 20ms delay()
+const long dcinterval = 500;     // LED blink interval when BT is not connected - 500ms
+const long btinterval = 20;      // Using millis to unblock core0 instead of 20ms delay()
+const long lobatinterval = 125;  // LED blink interval when battery is low - 125ms
 
+bool batteryTestMode = true;
 bool jinglePlayed = false;
 bool ledState = true;
 int batteryReportCounter = 0;
 int Vbatt = 0;
-int fakeBatt = 0;
-unsigned long previousMillis = 0;
-unsigned long currentMillis = 0;
+int fakeBatt = 100;
+int batteryHue = 96;
+unsigned long dcpreviousMillis = 0;
+unsigned long dccurrentMillis = 0;
 unsigned long btpreviousMillis = 0;
 unsigned long btcurrentMillis = 0;
+unsigned long lobatpreviousMillis = 0;
+unsigned long lobatcurrentMillis = 0;
 float Vbattnormalized = 0;
-float Vbattpercent = 0;
+float Vbattpercent = 100;
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
 byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
@@ -104,21 +112,61 @@ void setup() {
 }
 
 void loop() {  // Runs on core1
-  //fakeBattery();
-  batteryStatus();
+  if (batteryTestMode) {
+    fakeBattery();
+  } else {
+    batteryStatus();
+  }
+
+  switch (int(Vbattpercent)) {
+    case 0:  // Battery is dead - kill the lights and sleep
+      leds[0] = CHSV(0, 255, 0);
+      FastLED.show();
+      esp_deep_sleep_start();
+      break;
+    case 1 ... 20:  // Battery is low so red
+      batteryHue = 0;
+      break;
+    case 21 ... 70:  // Battery is mid so yellow
+      batteryHue = 64;
+      break;
+    case 71 ... 100:  // Battery is decently charged so green
+      batteryHue = 96;
+      break;
+    default:  //Some kind of error maybe so let's just say red
+      batteryHue = 0;
+      break;
+  }
+
   if (!bleKeyboard.isConnected()) {
-    currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
-      previousMillis = currentMillis;
-      if (ledState) {
-        ledState = false;
-        leds[0] = CHSV(int(Vbattpercent), 255, 0);
-      } else {
-        ledState = true;
-        leds[0] = CHSV(int(Vbattpercent), 255, 10);
+    if (int(Vbattpercent) <= 5) {  // Blink rapidly while connected to indicate low battery
+      lobatcurrentMillis = millis();
+      if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
+        lobatpreviousMillis = lobatcurrentMillis;
+        if (ledState) {
+          ledState = false;
+          leds[0] = CHSV(batteryHue, 126, 0);
+        } else {
+          ledState = true;
+          leds[0] = CHSV(batteryHue, 126, 10);
+        }
+        FastLED.show();  // Update LED to represent current state of charge
       }
-      FastLED.show();  // Update LED to represent current state of charge
+    } else {
+      dccurrentMillis = millis();
+      if (dccurrentMillis - dcpreviousMillis >= dcinterval) {
+        dcpreviousMillis = dccurrentMillis;
+        if (ledState) {
+          ledState = false;
+          leds[0] = CHSV(batteryHue, 126, 0);
+        } else {
+          ledState = true;
+          leds[0] = CHSV(batteryHue, 126, 10);
+        }
+        FastLED.show();  // Update LED to represent current state of charge
+      }
     }
+
     jinglePlayed = false;
   }
 
@@ -128,8 +176,24 @@ void loop() {  // Runs on core1
       helldive();
       batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on yellow
     }
-    leds[0] = CHSV(int(Vbattpercent), 255, 10);
-    FastLED.show();  // Update LED to represent current state of charge
+
+    if (int(Vbattpercent) <= 5) {  // Blink rapidly while connected to indicate low battery
+      lobatcurrentMillis = millis();
+      if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
+        lobatpreviousMillis = lobatcurrentMillis;
+        if (ledState) {
+          ledState = false;
+          leds[0] = CHSV(batteryHue, 126, 0);
+        } else {
+          ledState = true;
+          leds[0] = CHSV(batteryHue, 126, 10);
+        }
+        FastLED.show();  // Update LED to represent current state of charge
+      }
+    } else {
+      leds[0] = CHSV(batteryHue, 126, 10);
+      FastLED.show();  // Update LED to represent current state of charge
+    }
   }
 }
 
@@ -165,7 +229,7 @@ void loopCore0(void* parameter) {
 }
 
 void helldive() {
-  leds[0] = CHSV(0, 255, 10);  //CRGB::Red;
+  leds[0] = CHSV(160, 255, 10);  //CRGB::Blue;
   FastLED.show();
   buzzer.tone(NOTE_F5, 200);
   delay(20);
@@ -173,15 +237,15 @@ void helldive() {
   FastLED.show();
   buzzer.tone(NOTE_E5, 200);
   delay(20);
-  leds[0] = CHSV(160, 255, 10);  //CRGB::Blue;
+  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
   FastLED.show();
   buzzer.tone(NOTE_D5, 200);
   delay(20);
-  leds[0] = CHSV(44, 220, 10);  //CRGB::OrangeRed;
+  leds[0] = CHSV(160, 255, 10);  //CRGB::Blue;
   FastLED.show();
   buzzer.tone(NOTE_A4, 1500);
   delay(20);
-  leds[0] = CHSV(96, 255, 10);  //CRGB::Green;
+  leds[0] = CHSV(96, 0, 10);  //CRGB::White;
   FastLED.show();
   buzzer.tone(NOTE_C5, 800);
   delay(20);
@@ -195,7 +259,7 @@ void initLED() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
   //FastLED.setBrightness(10);
   delay(1000);
-  leds[0] = CHSV(96, 255, 10);
+  leds[0] = CHSV(160, 255, 10);
   FastLED.show();
 }
 
@@ -242,21 +306,21 @@ void batteryStatus() {
   delay(20);
 }
 
-// void fakeBattery() {  // Needed a way to test LED conditions
-//   if (batteryReportCounter == 1500) {
-//     batteryReportCounter = 0;
-//   }
-//   if (batteryReportCounter == 50) {
-//     Vbattpercent = fakeBatt;
-//     bleKeyboard.setBatteryLevel(int(Vbattpercent));
-//     if (fakeBatt == 100) {
-//       fakeBatt = 0;
-//     } else {
-//       fakeBatt = fakeBatt + 1;
-//     }
-//     batteryReportCounter = 0;
-//   } else {
-//     batteryReportCounter = batteryReportCounter + 1;
-//   }
-//   delay(20);
-// }
+void fakeBattery() {  // Needed a way to test LED conditions
+  if (batteryReportCounter == 1500) {
+    batteryReportCounter = 50;
+  }
+  if (batteryReportCounter == 50) {
+    Vbattpercent = fakeBatt;
+    bleKeyboard.setBatteryLevel(int(Vbattpercent));
+    if (fakeBatt == 0) {
+      fakeBatt = 100;
+    } else {
+      fakeBatt = fakeBatt - 1;
+    }
+    batteryReportCounter = 0;
+  } else {
+    batteryReportCounter = batteryReportCounter + 1;
+  }
+  delay(20);
+}
