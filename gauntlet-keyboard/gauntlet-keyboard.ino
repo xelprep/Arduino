@@ -70,18 +70,20 @@ bool batteryTestMode = false;
 bool jinglePlayed = false;
 bool ledState = true;
 int batteryReportCounter = 0;
-int Vbatt = 0;
 int fakeBatt = 100;
 int batteryHue = 96;
 int zeroBattTimes = 0;
+int Vbattpercent = 100;
 unsigned long dcpreviousMillis = 0;
 unsigned long dccurrentMillis = 0;
 unsigned long btpreviousMillis = 0;
 unsigned long btcurrentMillis = 0;
 unsigned long lobatpreviousMillis = 0;
 unsigned long lobatcurrentMillis = 0;
+float Vbatt = 0;
+float analogBatt = 0;
+float Vbattf = 0;
 float Vbattnormalized = 0;
-float Vbattpercent = 100;
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
 byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
@@ -120,7 +122,7 @@ void loop() {  // Runs on core1
   }
 
   if (!bleKeyboard.isConnected()) {
-    if (int(Vbattpercent) <= 5) {  // Blink rapidly while connected to indicate low battery
+    if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
       lobatcurrentMillis = millis();
       if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
         lobatpreviousMillis = lobatcurrentMillis;
@@ -158,7 +160,7 @@ void loop() {  // Runs on core1
       batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on yellow
     }
 
-    if (int(Vbattpercent) <= 5) {  // Blink rapidly while connected to indicate low battery
+    if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
       lobatcurrentMillis = millis();
       if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
         lobatpreviousMillis = lobatcurrentMillis;
@@ -282,12 +284,17 @@ void initPins() {
 
 void batteryStatus() {
   if (batteryReportCounter == 1500) {  // Limit the number of battery reports to ~1 per 30 seconds 1500 counts * 20 millis = 30000 millis
+    Vbatt = 0;
     for (int i = 0; i < 10001; i++) {
       if (i != 0) {  // Internet says discard first reading since ESP ADC sucks
-        Vbatt = Vbatt + analogReadMilliVolts(BATTERY_PIN);
+        analogBatt = analogReadMilliVolts(BATTERY_PIN);
+        if (analogBatt <= 0) {
+          analogBatt = 0;
+        }
+        Vbatt = Vbatt + analogBatt;
       }
     }
-    float Vbattf = 2 * Vbatt / 10000 / 1000.0;  // attenuation ratio 1/2, 10000 readings, mV --> V
+    Vbattf = 2 * Vbatt / 10000 / 1000.0;  // attenuation ratio 1/2, 10000 readings, mV --> V
 
     Vbattnormalized = Vbattf - 3.3;  // Subract safe voltage. 3.3 is the lowest value I'm comfortable going. 4.2 is the max. 4.2 - 3.3 = .9
 
@@ -299,14 +306,12 @@ void batteryStatus() {
       Vbattnormalized = .9;  // Sometimes it's too high. Hopefully there's a box of sand nearby
     }
 
-    Vbattpercent = Vbattnormalized / .9 * 100;
+    Vbattpercent = int(round(Vbattnormalized / .9 * 100));
 
-    Vbattpercent = round(Vbattpercent);
-
-    bleKeyboard.setBatteryLevel(int(Vbattpercent));
+    bleKeyboard.setBatteryLevel(Vbattpercent);
     batteryReportCounter = 0;
 
-    switch (int(Vbattpercent)) {
+    switch (Vbattpercent) {
       case 0:  // Battery is dead - make sure first and then kill the lights and sleep
         zeroBattTimes = zeroBattTimes + 1;
         if (zeroBattTimes == 3) {
@@ -348,7 +353,7 @@ void fakeBattery() {  // Needed a way to test LED conditions
   }
   if (batteryReportCounter == 50) {
     Vbattpercent = fakeBatt;
-    bleKeyboard.setBatteryLevel(int(Vbattpercent));
+    bleKeyboard.setBatteryLevel(Vbattpercent);
     if (fakeBatt == 0) {
       fakeBatt = 100;
     } else {
@@ -356,7 +361,7 @@ void fakeBattery() {  // Needed a way to test LED conditions
     }
     batteryReportCounter = 0;
 
-    switch (int(Vbattpercent)) {
+    switch (Vbattpercent) {
       case 0:  // Battery is dead - make sure first and then kill the lights and sleep
         helldead();
         leds[0] = CHSV(0, 255, 0);
