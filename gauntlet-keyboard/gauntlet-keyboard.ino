@@ -236,6 +236,30 @@ void helldive() {
   jinglePlayed = true;
 }
 
+void helldead() {
+  buzzer.tone(NOTE_AS4, 200);
+  delay(10);
+  buzzer.tone(NOTE_AS4, 120);
+  delay(10);
+  buzzer.tone(NOTE_AS4, 80);
+  delay(10);
+  buzzer.tone(NOTE_AS4, 200);
+  delay(10);
+  buzzer.tone(NOTE_CS5, 120);
+  delay(10);
+  buzzer.tone(NOTE_C5, 80);
+  delay(10);
+  buzzer.tone(NOTE_C5, 120);
+  delay(10);
+  buzzer.tone(NOTE_AS4, 80);
+  delay(10);
+  buzzer.tone(NOTE_AS4, 120);
+  delay(10);
+  buzzer.tone(NOTE_A4, 80);
+  delay(10);
+  buzzer.tone(NOTE_AS4, 300);
+}
+
 void initLED() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
   //FastLED.setBrightness(10);
@@ -281,40 +305,41 @@ void batteryStatus() {
 
     bleKeyboard.setBatteryLevel(int(Vbattpercent));
     batteryReportCounter = 0;
+
+    switch (int(Vbattpercent)) {
+      case 0:  // Battery is dead - make sure first and then kill the lights and sleep
+        zeroBattTimes = zeroBattTimes + 1;
+        if (zeroBattTimes == 3) {
+          zeroBattTimes = 0;  // Not sure if required because this will likely be 0 when it powers back up
+          helldead();
+          leds[0] = CHSV(0, 255, 0);
+          FastLED.show();
+          esp_deep_sleep_start();
+        } else {
+          batteryHue = 0;
+        }
+        break;
+      case 1 ... 20:  // Battery is low so red
+        batteryHue = 0;
+        zeroBattTimes = 0;
+        break;
+      case 21 ... 70:  // Battery is mid so yellow
+        batteryHue = 64;
+        zeroBattTimes = 0;
+        break;
+      case 71 ... 100:  // Battery is decently charged so green
+        batteryHue = 96;
+        zeroBattTimes = 0;
+        break;
+      default:  //Some kind of error maybe so let's just say red
+        batteryHue = 0;
+        zeroBattTimes = 0;
+        break;
+    }
   } else {
     batteryReportCounter = batteryReportCounter + 1;
   }
   delay(20);
-
-  switch (int(Vbattpercent)) {
-    case 0:  // Battery is dead - make sure first and then kill the lights and sleep
-      zeroBattTimes = zeroBattTimes + 1;
-      if (zeroBattTimes == 3) {
-        zeroBattTimes = 0;  // Not sure if required because this will likely be 0 when it powers back up
-        leds[0] = CHSV(0, 255, 0);
-        FastLED.show();
-        esp_deep_sleep_start();
-      } else {
-        batteryHue = 0;
-      }
-      break;
-    case 1 ... 20:  // Battery is low so red
-      batteryHue = 0;
-      zeroBattTimes = 0;
-      break;
-    case 21 ... 70:  // Battery is mid so yellow
-      batteryHue = 64;
-      zeroBattTimes = 0;
-      break;
-    case 71 ... 100:  // Battery is decently charged so green
-      batteryHue = 96;
-      zeroBattTimes = 0;
-      break;
-    default:  //Some kind of error maybe so let's just say red
-      batteryHue = 0;
-      zeroBattTimes = 0;
-      break;
-  }
 }
 
 void fakeBattery() {  // Needed a way to test LED conditions
@@ -330,28 +355,28 @@ void fakeBattery() {  // Needed a way to test LED conditions
       fakeBatt = fakeBatt - 1;
     }
     batteryReportCounter = 0;
+
+    switch (int(Vbattpercent)) {
+      case 0:  // Battery is dead - make sure first and then kill the lights and sleep
+        leds[0] = CHSV(0, 255, 0);
+        FastLED.show();
+        esp_deep_sleep_start();
+        break;
+      case 1 ... 20:  // Battery is low so red
+        batteryHue = 0;
+        break;
+      case 21 ... 70:  // Battery is mid so yellow
+        batteryHue = 64;
+        break;
+      case 71 ... 100:  // Battery is decently charged so green
+        batteryHue = 96;
+        break;
+      default:  //Some kind of error maybe so let's just say red
+        batteryHue = 0;
+        break;
+    }
   } else {
     batteryReportCounter = batteryReportCounter + 1;
   }
   delay(20);
-
-  switch (int(Vbattpercent)) {
-    case 0:               // Battery is dead - make sure first and then kill the lights and sleep
-      leds[0] = CHSV(0, 255, 0);
-      FastLED.show();
-      esp_deep_sleep_start();
-      break;
-    case 1 ... 20:  // Battery is low so red
-      batteryHue = 0;
-      break;
-    case 21 ... 70:  // Battery is mid so yellow
-      batteryHue = 64;
-      break;
-    case 71 ... 100:  // Battery is decently charged so green
-      batteryHue = 96;
-      break;
-    default:  //Some kind of error maybe so let's just say red
-      batteryHue = 0;
-      break;
-  }
 }
