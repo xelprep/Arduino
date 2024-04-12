@@ -358,6 +358,7 @@ void fakeBattery() {  // Needed a way to test LED conditions
 
     switch (int(Vbattpercent)) {
       case 0:  // Battery is dead - make sure first and then kill the lights and sleep
+        helldead();
         leds[0] = CHSV(0, 255, 0);
         FastLED.show();
         esp_deep_sleep_start();
