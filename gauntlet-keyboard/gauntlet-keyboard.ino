@@ -157,7 +157,7 @@ void loop() {  // Runs on core1
     if (!jinglePlayed) {
       delay(1000);
       helldive();
-      batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on yellow
+      batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on the last color
     }
 
     if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
@@ -212,11 +212,11 @@ void loopCore0(void* parameter) {
 }
 
 void helldive() {
-  leds[0] = CHSV(160, 255, 10);  //CRGB::Blue;
+  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
   FastLED.show();
   buzzer.tone(NOTE_F5, 200);
   delay(20);
-  leds[0] = CHSV(96, 0, 10);  //CRGB::White;
+  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
   FastLED.show();
   buzzer.tone(NOTE_E5, 200);
   delay(20);
@@ -232,7 +232,7 @@ void helldive() {
   FastLED.show();
   buzzer.tone(NOTE_C5, 800);
   delay(20);
-  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
+  leds[0] = CHSV(96, 0, 10);  //CRGB::White;
   FastLED.show();
   buzzer.tone(NOTE_D5, 1500);
   jinglePlayed = true;
@@ -324,16 +324,20 @@ void batteryStatus() {
           batteryHue = 0;
         }
         break;
-      case 1 ... 20:  // Battery is low so red
+      case 1 ... 25:  // Battery is low so red
         batteryHue = 0;
         zeroBattTimes = 0;
         break;
-      case 21 ... 70:  // Battery is mid so yellow
+      case 26 ... 50:  // Battery is mid so yellow
         batteryHue = 64;
         zeroBattTimes = 0;
         break;
-      case 71 ... 100:  // Battery is decently charged so green
+      case 51 ... 75:  // Battery is high mid so green
         batteryHue = 96;
+        zeroBattTimes = 0;
+        break;
+      case 76 ... 100:  // Battery is decently charged so blue
+        batteryHue = 160;
         zeroBattTimes = 0;
         break;
       default:  //Some kind of error maybe so let's just say red
@@ -368,17 +372,25 @@ void fakeBattery() {  // Needed a way to test LED conditions
         FastLED.show();
         esp_deep_sleep_start();
         break;
-      case 1 ... 20:  // Battery is low so red
+      case 1 ... 25:  // Battery is low so red
         batteryHue = 0;
+        zeroBattTimes = 0;
         break;
-      case 21 ... 70:  // Battery is mid so yellow
+      case 26 ... 50:  // Battery is mid so yellow
         batteryHue = 64;
+        zeroBattTimes = 0;
         break;
-      case 71 ... 100:  // Battery is decently charged so green
+      case 51 ... 75:  // Battery is high mid so green
         batteryHue = 96;
+        zeroBattTimes = 0;
+        break;
+      case 76 ... 100:  // Battery is decently charged so blue
+        batteryHue = 160;
+        zeroBattTimes = 0;
         break;
       default:  //Some kind of error maybe so let's just say red
         batteryHue = 0;
+        zeroBattTimes = 0;
         break;
     }
   } else {
