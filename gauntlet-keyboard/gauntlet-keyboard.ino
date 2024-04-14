@@ -44,7 +44,7 @@ ADC reads full battery due to being connected to charging module. Unsure how to 
 #endif
 
 #ifdef ARDUINO_ADAFRUIT_FEATHER_ESP32_V2
-#define BATTERY_PIN VOLTAGE_MONITOR
+#define BATTERY_PIN BATT_MONITOR
 #define BUZZER_PIN 27
 #define LED_PIN 33
 #define BUTTON1 15
