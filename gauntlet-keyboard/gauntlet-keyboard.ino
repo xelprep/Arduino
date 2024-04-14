@@ -44,14 +44,14 @@ ADC reads full battery due to being connected to charging module. Unsure how to 
 #endif
 
 #ifdef ARDUINO_ADAFRUIT_FEATHER_ESP32_V2
-#define BATTERY_PIN 4
-#define BUZZER_PIN 22
-#define LED_PIN 13
-#define BUTTON1 12
-#define BUTTON2 16
-#define BUTTON3 17
-#define BUTTON4 18
-#define BUTTON5 19
+#define BATTERY_PIN A13
+#define BUZZER_PIN 27
+#define LED_PIN 33
+#define BUTTON1 15
+#define BUTTON2 32
+#define BUTTON3 14
+#define BUTTON4 20
+#define BUTTON5 22
 #define BOARD "FEATHERV2"
 #endif
 
@@ -264,7 +264,6 @@ void helldead() {
 
 void initLED() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
-  //FastLED.setBrightness(10);
   delay(1000);
   leds[0] = CHSV(160, 255, 10);
   FastLED.show();
@@ -274,6 +273,11 @@ void initPins() {
   pinMode(BATTERY_PIN, INPUT_PULLDOWN);  // ADC
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged
+
+  if (BOARD == "FEATHERV2") { // Make sure onboard Neopixel on Feather V2 is off
+    pinMode(0, OUTPUT);
+    digitalWrite(0, LOW);
+  }
 
   for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
     pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
