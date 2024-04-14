@@ -87,7 +87,7 @@ float Vbattnormalized = 0;
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
 byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
-byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'w', 'a', 's', 'd' };
+byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, KEY_NUM_8, KEY_NUM_4, KEY_NUM_2, KEY_NUM_6 };
 
 TaskHandle_t loopCore0task;  // Instantiate another task to run on low-priority core 0
 
