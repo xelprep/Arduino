@@ -87,12 +87,12 @@ float Vbattnormalized = 0;
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
 byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
-byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, KEY_NUM_8, KEY_NUM_4, KEY_NUM_2, KEY_NUM_6 };
+byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'i', 'j', 'k', 'l' };
 
 TaskHandle_t loopCore0task;  // Instantiate another task to run on low-priority core 0
 
 CRGB leds[NUM_LEDS];
-BleKeyboard bleKeyboard("Hell Gauntlet", "S.E.A.F Armory", 100);
+BleKeyboard bleKeyboard("Orbital Bracer", "S.E.A.F Armory", 100);
 ToneESP32 buzzer(BUZZER_PIN, BUZZER_CHANNEL);
 
 void setup() {
