@@ -46,7 +46,7 @@ ADC reads full battery due to being connected to charging module. Unsure how to 
 #ifdef ARDUINO_ADAFRUIT_FEATHER_ESP32_V2
 #define BATTERY_PIN BATT_MONITOR
 #define BUZZER_PIN 27
-#define LED_PIN 33
+#define LED_PIN 0 // Built-in Neopixel
 #define BUTTON1 15
 #define BUTTON2 32
 #define BUTTON3 14
@@ -274,10 +274,10 @@ void initPins() {
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged
 
-  if (BOARD == "FEATHERV2") { // Make sure onboard Neopixel on Feather V2 is off
-    pinMode(0, OUTPUT);
-    digitalWrite(0, LOW);
-  }
+  // if (BOARD == "FEATHERV2") { // Make sure onboard Neopixel on Feather V2 is off
+  //   pinMode(0, OUTPUT);
+  //   digitalWrite(0, LOW);
+  // }
 
   for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
     pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
