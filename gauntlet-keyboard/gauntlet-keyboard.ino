@@ -27,6 +27,11 @@ Setting to false reads actual connected battery. If no battery is inserted, at l
 ADC reads full battery due to being connected to charging module. Unsure how to fix or if it's even possible.
 */
 
+/*
+Set ledBright to and integer from 0-255, defaults to 10 but might need to go higher if using the onboard neopixel
+Keep as low as possible since we're technically running the WS2812B out of spec at 3.3v
+*/
+
 #include <BleKeyboard.h>
 #include <ToneESP32.h>
 #include <FastLED.h>
@@ -62,6 +67,7 @@ ADC reads full battery due to being connected to charging module. Unsure how to 
 const int numOfButtons = 5;
 const int BUZZER_CHANNEL = 0;
 const int NUM_LEDS = 1;
+const int ledBright = 10;
 const long dcinterval = 500;     // LED blink interval when BT is not connected - 500ms
 const long btinterval = 20;      // Using millis to unblock core0 instead of 20ms delay()
 const long lobatinterval = 125;  // LED blink interval when battery is low - 125ms
@@ -131,7 +137,7 @@ void loop() {  // Runs on core1
           leds[0] = CHSV(batteryHue, 126, 0);
         } else {
           ledState = true;
-          leds[0] = CHSV(batteryHue, 126, 10);
+          leds[0] = CHSV(batteryHue, 126, ledBright);
         }
         FastLED.show();  // Update LED to represent current state of charge
       }
@@ -144,7 +150,7 @@ void loop() {  // Runs on core1
           leds[0] = CHSV(batteryHue, 126, 0);
         } else {
           ledState = true;
-          leds[0] = CHSV(batteryHue, 126, 10);
+          leds[0] = CHSV(batteryHue, 126, ledBright);
         }
         FastLED.show();  // Update LED to represent current state of charge
       }
@@ -169,12 +175,12 @@ void loop() {  // Runs on core1
           leds[0] = CHSV(batteryHue, 126, 0);
         } else {
           ledState = true;
-          leds[0] = CHSV(batteryHue, 126, 10);
+          leds[0] = CHSV(batteryHue, 126, ledBright);
         }
         FastLED.show();  // Update LED to represent current state of charge
       }
     } else {
-      leds[0] = CHSV(batteryHue, 126, 10);
+      leds[0] = CHSV(batteryHue, 126, ledBright);
       FastLED.show();  // Update LED to represent current state of charge
     }
   }
@@ -212,27 +218,27 @@ void loopCore0(void* parameter) {
 }
 
 void helldive() {
-  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
+  leds[0] = CHSV(64, 255, ledBright);  //CRGB::Yellow;
   FastLED.show();
   buzzer.tone(NOTE_F5, 200);
   delay(20);
-  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
+  leds[0] = CHSV(64, 255, ledBright);  //CRGB::Yellow;
   FastLED.show();
   buzzer.tone(NOTE_E5, 200);
   delay(20);
-  leds[0] = CHSV(64, 255, 10);  //CRGB::Yellow;
+  leds[0] = CHSV(64, 255, ledBright);  //CRGB::Yellow;
   FastLED.show();
   buzzer.tone(NOTE_D5, 200);
   delay(20);
-  leds[0] = CHSV(160, 255, 10);  //CRGB::Blue;
+  leds[0] = CHSV(160, 255, ledBright);  //CRGB::Blue;
   FastLED.show();
   buzzer.tone(NOTE_A4, 1500);
   delay(20);
-  leds[0] = CHSV(96, 0, 10);  //CRGB::White;
+  leds[0] = CHSV(96, 0, ledBright);  //CRGB::White;
   FastLED.show();
   buzzer.tone(NOTE_C5, 800);
   delay(20);
-  leds[0] = CHSV(96, 0, 10);  //CRGB::White;
+  leds[0] = CHSV(96, 0, ledBright);  //CRGB::White;
   FastLED.show();
   buzzer.tone(NOTE_D5, 1500);
   jinglePlayed = true;
@@ -265,7 +271,7 @@ void helldead() {
 void initLED() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
   delay(1000);
-  leds[0] = CHSV(160, 255, 10);
+  leds[0] = CHSV(160, 255, ledBright);
   FastLED.show();
 }
 
