@@ -123,6 +123,8 @@ void BleKeyboard::begin(void)
 #if defined(USE_NIMBLE)
 
   BLEDevice::setSecurityAuth(true, true, true);
+  BLEDevice::setSecurityPasskey(123456);
+  BLEDevice::setSecurityIOCap(BLE_HS_IO_DISPLAY_ONLY);
 
 #else
 
