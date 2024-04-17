@@ -51,7 +51,7 @@ Keep as low as possible since we're technically running the WS2812B out of spec 
 #ifdef ARDUINO_ADAFRUIT_FEATHER_ESP32_V2
 #define BATTERY_PIN BATT_MONITOR
 #define BUZZER_PIN 27
-#define LED_PIN 0 // Built-in Neopixel
+#define LED_PIN 0  // Built-in Neopixel
 #define BUTTON1 15
 #define BUTTON2 32
 #define BUTTON3 14
@@ -80,6 +80,7 @@ int fakeBatt = 100;
 int batteryHue = 96;
 int zeroBattTimes = 0;
 int Vbattpercent = 100;
+uint32_t passKey = 000000;
 unsigned long dcpreviousMillis = 0;
 unsigned long dccurrentMillis = 0;
 unsigned long btpreviousMillis = 0;
