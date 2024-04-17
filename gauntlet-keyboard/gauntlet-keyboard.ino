@@ -4,12 +4,16 @@ Hell Gauntlet
 Authored by xelprep cobbled together from various example code in the used libraries
 
 Tested with the following libraries:
-ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled (see docs for library)
+ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled and some additional security modifications done - see libraries folder
 NimBLE-Arduino@1.4.1
 ToneESP32@1.0.0
 FastLED@3.6.0
+WiFi@2.0.0
+AsyncTCP@1.1.4
+ESPAsyncWebServer@3.1.0
+FS@2.0.0
 
-Tested with version 2.0.14 ESP32 Arduino Core
+Tested with version 2.0.15 ESP32 Arduino Core
 
 Should only compile for a WEMOS LOLIN32, Adafruit ESP32 Feather V2, or compatible clones.
 Should fail to compile for other boards
@@ -17,24 +21,24 @@ Should fail to compile for other boards
 TODO:
 Test on a ps5
 Test if HD respects inputs from multiple keyboards
-*/
 
-/*
+NOTES
 Set batteryTestMode to true if you want to run battery test with fake battery status.
 Starts at 100 and decreases 1% every ~1 second.
 
 Setting to false reads actual connected battery. If no battery is inserted, at least on the LOLIN32 close, 
 ADC reads full battery due to being connected to charging module. Unsure how to fix or if it's even possible.
-*/
 
-/*
-Set ledBright to and integer from 0-255, defaults to 10 but might need to go higher if using the onboard neopixel
+Set ledBright to an integer from 0-255, defaults to 10 but might need to go higher if using the onboard neopixel
 Keep as low as possible since we're technically running the WS2812B out of spec at 3.3v
 */
 
 #include <BleKeyboard.h>
 #include <ToneESP32.h>
 #include <FastLED.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #ifdef ARDUINO_LOLIN32
 #define BATTERY_PIN 4
@@ -67,26 +71,43 @@ Keep as low as possible since we're technically running the WS2812B out of spec 
 const int numOfButtons = 5;
 const int BUZZER_CHANNEL = 0;
 const int NUM_LEDS = 1;
-const int ledBright = 10;
+const int ledBright = 60;
 const long dcinterval = 500;     // LED blink interval when BT is not connected - 500ms
 const long btinterval = 20;      // Using millis to unblock core0 instead of 20ms delay()
 const long lobatinterval = 125;  // LED blink interval when battery is low - 125ms
+const long provinterval = 30;    // LED blink interval during wifi provisioning - 30ms
+const char* ssid = "Orbital Bracer Network";
+const char* password = "123456789";
+const char* PARAM_INPUT_1 = "input1";
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html><head>
+  <title>Bluetooth Passkey</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head><body>
+  <form action="/get">
+    input1: <input type="number" name="input1">
+    <input type="submit" value="Submit">
+  </form><br>
+</body></html>)rawliteral";
 
 bool batteryTestMode = false;
 bool jinglePlayed = false;
 bool ledState = true;
+bool wifiEnabled = false;
 int batteryReportCounter = 0;
 int fakeBatt = 100;
-int batteryHue = 96;
+int batteryHue = 80;
 int zeroBattTimes = 0;
 int Vbattpercent = 100;
-uint32_t passKey = 000000;
+extern uint32_t passKey;
 unsigned long dcpreviousMillis = 0;
 unsigned long dccurrentMillis = 0;
 unsigned long btpreviousMillis = 0;
 unsigned long btcurrentMillis = 0;
 unsigned long lobatpreviousMillis = 0;
 unsigned long lobatcurrentMillis = 0;
+unsigned long provpreviousMillis = 0;
+unsigned long provcurrentMillis = 0;
 float Vbatt = 0;
 float analogBatt = 0;
 float Vbattf = 0;
@@ -98,6 +119,7 @@ byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'i', 'j', 'k', 'l' };
 
 TaskHandle_t loopCore0task;  // Instantiate another task to run on low-priority core 0
 
+AsyncWebServer server(80);
 CRGB leds[NUM_LEDS];
 BleKeyboard bleKeyboard("Orbital Bracer", "S.E.A.F Armory", 100);
 ToneESP32 buzzer(BUZZER_PIN, BUZZER_CHANNEL);
@@ -105,6 +127,16 @@ ToneESP32 buzzer(BUZZER_PIN, BUZZER_CHANNEL);
 void setup() {
   initLED();
   initPins();
+
+  if (digitalRead(buttonPins[0]) == LOW) {  // Hold CTRL key at boot to enter wifi provisioning mode
+    wifiEnabled = true;
+    leds[0] = CHSV(224, 220, ledBright);
+    FastLED.show();
+    delay(2000);
+    WiFi.softAP(ssid, password);
+    wifiStuff();
+  }
+
   bleKeyboard.begin();
 
   batteryReportCounter = 1500;  // Ensure battery status is updated asap after boot
@@ -121,67 +153,82 @@ void setup() {
     0);                     /* Core where the task should run */
 }
 
-void loop() {  // Runs on core1
-  if (batteryTestMode) {
-    fakeBattery();
-  } else {
-    batteryStatus();
-  }
-
-  if (!bleKeyboard.isConnected()) {
-    if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
-      lobatcurrentMillis = millis();
-      if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
-        lobatpreviousMillis = lobatcurrentMillis;
-        if (ledState) {
-          ledState = false;
-          leds[0] = CHSV(batteryHue, 126, 0);
-        } else {
-          ledState = true;
-          leds[0] = CHSV(batteryHue, 126, ledBright);
-        }
-        FastLED.show();  // Update LED to represent current state of charge
-      }
+void loop() {          // Runs on core1
+  if (!wifiEnabled) {  // Ignore battery status and jingle stuff during wifi provisioning
+    if (batteryTestMode) {
+      fakeBattery();
     } else {
-      dccurrentMillis = millis();
-      if (dccurrentMillis - dcpreviousMillis >= dcinterval) {
-        dcpreviousMillis = dccurrentMillis;
-        if (ledState) {
-          ledState = false;
-          leds[0] = CHSV(batteryHue, 126, 0);
-        } else {
-          ledState = true;
-          leds[0] = CHSV(batteryHue, 126, ledBright);
+      batteryStatus();
+    }
+
+    if (!bleKeyboard.isConnected()) {
+      if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
+        lobatcurrentMillis = millis();
+        if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
+          lobatpreviousMillis = lobatcurrentMillis;
+          if (ledState) {
+            ledState = false;
+            leds[0] = CHSV(batteryHue, 220, 0);
+          } else {
+            ledState = true;
+            leds[0] = CHSV(batteryHue, 220, ledBright);
+          }
+          FastLED.show();  // Update LED to represent current state of charge
         }
+      } else {
+        dccurrentMillis = millis();
+        if (dccurrentMillis - dcpreviousMillis >= dcinterval) {
+          dcpreviousMillis = dccurrentMillis;
+          if (ledState) {
+            ledState = false;
+            leds[0] = CHSV(batteryHue, 220, 0);
+          } else {
+            ledState = true;
+            leds[0] = CHSV(batteryHue, 220, ledBright);
+          }
+          FastLED.show();  // Update LED to represent current state of charge
+        }
+      }
+
+      jinglePlayed = false;
+    }
+
+    if (bleKeyboard.isConnected()) {
+      if (!jinglePlayed) {
+        delay(1000);
+        helldive();
+        batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on the last color
+      }
+
+      if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
+        lobatcurrentMillis = millis();
+        if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
+          lobatpreviousMillis = lobatcurrentMillis;
+          if (ledState) {
+            ledState = false;
+            leds[0] = CHSV(batteryHue, 220, 0);
+          } else {
+            ledState = true;
+            leds[0] = CHSV(batteryHue, 220, ledBright);
+          }
+          FastLED.show();  // Update LED to represent current state of charge
+        }
+      } else {
+        leds[0] = CHSV(batteryHue, 220, ledBright);
         FastLED.show();  // Update LED to represent current state of charge
       }
     }
-
-    jinglePlayed = false;
-  }
-
-  if (bleKeyboard.isConnected()) {
-    if (!jinglePlayed) {
-      delay(1000);
-      helldive();
-      batteryReportCounter = 1500;  // Ensure battery status is updated post-jingle so we're not hanging on the last color
-    }
-
-    if (Vbattpercent <= 5) {  // Blink rapidly while connected to indicate low battery
-      lobatcurrentMillis = millis();
-      if (lobatcurrentMillis - lobatpreviousMillis >= lobatinterval) {
-        lobatpreviousMillis = lobatcurrentMillis;
-        if (ledState) {
-          ledState = false;
-          leds[0] = CHSV(batteryHue, 126, 0);
-        } else {
-          ledState = true;
-          leds[0] = CHSV(batteryHue, 126, ledBright);
-        }
-        FastLED.show();  // Update LED to represent current state of charge
+  } else {  // Fast blink the pink during provisioning
+    provcurrentMillis = millis();
+    if (provcurrentMillis - provpreviousMillis >= provinterval) {
+      provpreviousMillis = provcurrentMillis;
+      if (ledState) {
+        ledState = false;
+        leds[0] = CHSV(224, 220, 0);
+      } else {
+        ledState = true;
+        leds[0] = CHSV(224, 220, ledBright);
       }
-    } else {
-      leds[0] = CHSV(batteryHue, 126, ledBright);
       FastLED.show();  // Update LED to represent current state of charge
     }
   }
@@ -280,11 +327,6 @@ void initPins() {
   pinMode(BATTERY_PIN, INPUT_PULLDOWN);  // ADC
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);  // Turn LED on so you know it's on when unplugged
-
-  // if (BOARD == "FEATHERV2") { // Make sure onboard Neopixel on Feather V2 is off
-  //   pinMode(0, OUTPUT);
-  //   digitalWrite(0, LOW);
-  // }
 
   for (byte currentPinIndex = 0; currentPinIndex < numOfButtons; currentPinIndex++) {
     pinMode(buttonPins[currentPinIndex], INPUT_PULLUP);
@@ -408,4 +450,28 @@ void fakeBattery() {  // Needed a way to test LED conditions
     batteryReportCounter = batteryReportCounter + 1;
   }
   delay(20);
+}
+
+void notFound(AsyncWebServerRequest* request) {
+  request->send(404, "text/plain", "Not found");
+}
+
+void wifiStuff() {
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send_P(200, "text/html", index_html);
+  });
+
+  server.on("/get", HTTP_GET, [](AsyncWebServerRequest* request) {
+    String inputMessage;
+    if (request->hasParam(PARAM_INPUT_1)) {
+      inputMessage = request->getParam(PARAM_INPUT_1)->value();
+      passKey = inputMessage.toInt();
+      request->send(200, "text/html", "Passkey Sent: " + String(passKey));
+    } else {
+      request->send(200, "text/html", "Passkey Error");
+    }
+  });
+
+  server.onNotFound(notFound);
+  server.begin();
 }
