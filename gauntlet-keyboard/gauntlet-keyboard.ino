@@ -29,19 +29,29 @@ NOTES
 Set batteryTestMode to true if you want to run battery test with fake battery status.
 Starts at 100 and decreases 1% every ~1 second.
 
-Setting batteryTestMode to false reads actual connected battery. If no battery is inserted, at least on the LOLIN32 close, 
+Setting batteryTestMode to false reads actual connected battery. If no battery is inserted, at least on the LOLIN32 clone, 
 ADC reads full battery due to being connected to charging module. Unsure how to fix or if it's even possible.
 
 Set ledBright to an integer from 0-255, defaults to 10 but might need to go higher if using the onboard neopixel
 Keep as low as possible since we're technically running the WS2812B out of spec at 3.3v
+
+Uncomment PS5 definition to invoke all the auth stuff for that platform
 */
 
-#include <BleKeyboard.h>
-#include <ToneESP32.h>
-#include <FastLED.h>
+// Platform definition
+//#define PS5
+
+#ifdef PS5
+#include <BleKeyboardWifi.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#else
+#include <BleKeyboardJW.h>
+#endif
+
+#include <ToneESP32.h>
+#include <FastLED.h>
 
 #ifdef ARDUINO_LOLIN32
 #define BATTERY_PIN 4
@@ -118,11 +128,19 @@ float Vbattnormalized = 0;
 byte previousButtonStates[numOfButtons];
 byte currentButtonStates[numOfButtons];
 byte buttonPins[numOfButtons] = { BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5 };
+
+#ifdef PS5
+byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'w', 'a', 's', 'd' };
+#else
 byte physicalButtons[numOfButtons] = { KEY_LEFT_CTRL, 'i', 'j', 'k', 'l' };
+#endif
 
 TaskHandle_t loopCore0task;  // Instantiate another task to run on low-priority core 0
 
+#ifdef PS5
 AsyncWebServer server(80);
+#endif
+
 CRGB leds[NUM_LEDS];
 BleKeyboard bleKeyboard("Orbital Bracer", "S.E.A.F Armory", 100);
 ToneESP32 buzzer(BUZZER_PIN, BUZZER_CHANNEL);
@@ -131,6 +149,7 @@ void setup() {
   initLED();
   initPins();
 
+#ifdef PS5
   if (digitalRead(buttonPins[0]) == LOW) {  // Hold CTRL key at boot to enter wifi provisioning mode
     wifiEnabled = true;
     leds[0] = CHSV(224, 220, ledBright);
@@ -139,6 +158,7 @@ void setup() {
     WiFi.softAP(ssid, password);
     wifiStuff();
   }
+#endif
 
   bleKeyboard.begin();
 
@@ -455,6 +475,7 @@ void fakeBattery() {  // Needed a way to test LED conditions
   delay(20);
 }
 
+#ifdef PS5
 void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
 }
@@ -478,3 +499,4 @@ void wifiStuff() {
   server.onNotFound(notFound);
   server.begin();
 }
+#endif

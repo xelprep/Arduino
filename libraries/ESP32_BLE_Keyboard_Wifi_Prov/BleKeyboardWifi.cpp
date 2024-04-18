@@ -1,4 +1,4 @@
-#include "BleKeyboard.h"
+#include "BleKeyboardWifi.h"
 
 #if defined(USE_NIMBLE)
 #include <NimBLEDevice.h>
