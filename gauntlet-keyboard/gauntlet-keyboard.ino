@@ -8,10 +8,8 @@ ESP32 BLE Keyboard@0.3.2 - with NimBLE mode enabled and some additional security
 NimBLE-Arduino@1.4.1
 ToneESP32@1.0.0
 FastLED@3.6.0
-WiFi@2.0.0
 AsyncTCP@1.1.4
 ESPAsyncWebServer@3.1.0
-FS@2.0.0
 
 Tested with version 2.0.15 ESP32 Arduino Core
 
@@ -21,9 +19,6 @@ Should fail to compile for other boards
 TODO:
 Test on a ps5
 Test if HD respects inputs from multiple keyboards
-Add defines and logic to distinguish between PS5 and PC builds (need to duplicate modified BLE Keyboard library and rename)
-Improve HTML for displayed pages
-Add captive portal so you can use a hostname
 
 NOTES
 Set batteryTestMode to true if you want to run battery test with fake battery status.
@@ -35,14 +30,17 @@ ADC reads full battery due to being connected to charging module. Unsure how to 
 Set ledBright to an integer from 0-255, defaults to 10 but might need to go higher if using the onboard neopixel
 Keep as low as possible since we're technically running the WS2812B out of spec at 3.3v
 
-Uncomment PS5 definition to invoke all the auth stuff for that platform
+Captive portal works, but only for http. Https requests will hang. Link to http://anything.tld (NO 'S') and it should work.
+
+Uncomment PS5 definition to invoke all the wifi and auth stuff for that platform
 */
 
 // Platform definition
-//#define PS5
+#define PS5
 
 #ifdef PS5
 #include <BleKeyboardWifi.h>
+#include <DNSServer.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -90,17 +88,19 @@ const long btinterval = 20;      // Using millis to unblock core0 instead of 20m
 const long lobatinterval = 125;  // LED blink interval when battery is low - 125ms
 const long provinterval = 30;    // LED blink interval during wifi provisioning - 30ms
 const char* ssid = "SUPEREARTH";
-const char* password = "12345678";
+//const char* password = "12345678";
 const char* PARAM_INPUT_1 = "input1";
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html><head>
-  <title>Bluetooth Passkey</title>
+  <title>Bluetooth Passkey</title><h2>Input Your Bluetooth Pairing Passkey</h2>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   </head><body>
   <form action="/get">
-    input1: <input type="number" name="input1">
+    Passkey: <input type="number" name="input1">
     <input type="submit" value="Submit">
-  </form><br>
+  </form><br>Make sure to load this page before starting the pairing process because 
+  once the pairing process starts, you only have 30 seconds to submit before 
+  you have to start over.
 </body></html>)rawliteral";
 
 bool batteryTestMode = false;
@@ -139,6 +139,21 @@ TaskHandle_t loopCore0task;  // Instantiate another task to run on low-priority 
 
 #ifdef PS5
 AsyncWebServer server(80);
+DNSServer dnsServer;
+class CaptiveRequestHandler : public AsyncWebHandler {
+public:
+  CaptiveRequestHandler() {}
+  virtual ~CaptiveRequestHandler() {}
+
+  bool canHandle(AsyncWebServerRequest* request) {
+    //request->addInterestingHeader("ANY");
+    return true;
+  }
+
+  void handleRequest(AsyncWebServerRequest* request) {
+    request->send_P(200, "text/html", index_html);
+  }
+};
 #endif
 
 CRGB leds[NUM_LEDS];
@@ -155,7 +170,8 @@ void setup() {
     leds[0] = CHSV(224, 220, ledBright);
     FastLED.show();
     delay(2000);
-    WiFi.softAP(ssid, password);
+    WiFi.softAP(ssid);
+    dnsServer.start(53, "*", WiFi.softAPIP());
     wifiStuff();
   }
 #endif
@@ -254,6 +270,9 @@ void loop() {          // Runs on core1
       }
       FastLED.show();  // Update LED to represent current state of charge
     }
+#ifdef PS5
+    dnsServer.processNextRequest();
+#endif
   }
 }
 
@@ -490,10 +509,14 @@ void wifiStuff() {
     if (request->hasParam(PARAM_INPUT_1)) {
       inputMessage = request->getParam(PARAM_INPUT_1)->value();
       passKey = inputMessage.toInt();
-      request->send(200, "text/html", "Passkey Sent: " + String(passKey));
+      request->send(200, "text/html", "Passkey Sent: " + String(passKey) + " <br>Click <a href=\"/restart\">here</a> to restart the controller");
     } else {
       request->send(200, "text/html", "Passkey Error");
     }
+  });
+
+  server.on("/restart", HTTP_GET, [](AsyncWebServerRequest* request) {
+    ESP.restart();
   });
 
   server.onNotFound(notFound);
