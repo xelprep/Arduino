@@ -77,7 +77,7 @@ const long btinterval = 20;      // Using millis to unblock core0 instead of 20m
 const long lobatinterval = 125;  // LED blink interval when battery is low - 125ms
 const long provinterval = 30;    // LED blink interval during wifi provisioning - 30ms
 const char* ssid = "SUPEREARTH";
-const char* password = "123456789";
+const char* password = "12345678";
 const char* PARAM_INPUT_1 = "input1";
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html><head>
