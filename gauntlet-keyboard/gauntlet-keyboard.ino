@@ -21,12 +21,15 @@ Should fail to compile for other boards
 TODO:
 Test on a ps5
 Test if HD respects inputs from multiple keyboards
+Add defines and logic to distinguish between PS5 and PC builds (need to duplicate modified BLE Keyboard library and rename)
+Improve HTML for displayed pages
+Add captive portal so you can use a hostname
 
 NOTES
 Set batteryTestMode to true if you want to run battery test with fake battery status.
 Starts at 100 and decreases 1% every ~1 second.
 
-Setting to false reads actual connected battery. If no battery is inserted, at least on the LOLIN32 close, 
+Setting batteryTestMode to false reads actual connected battery. If no battery is inserted, at least on the LOLIN32 close, 
 ADC reads full battery due to being connected to charging module. Unsure how to fix or if it's even possible.
 
 Set ledBright to an integer from 0-255, defaults to 10 but might need to go higher if using the onboard neopixel
